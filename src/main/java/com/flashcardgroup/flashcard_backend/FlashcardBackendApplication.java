@@ -9,5 +9,4 @@ public class FlashcardBackendApplication {
     public static void main(String[] args) {
         SpringApplication.run(FlashcardBackendApplication.class, args);
     }
-
 }
