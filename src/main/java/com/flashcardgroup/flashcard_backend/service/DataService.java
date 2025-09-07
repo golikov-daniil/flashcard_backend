@@ -86,6 +86,11 @@ public class DataService {
         return deckRepo.findByUser_UserId(userId);
     }
 
+    // getDeckById - new method needed for flashcard creation
+    public Optional<Deck> getDeckById(Integer deckId) {
+        return deckRepo.findById(Long.valueOf(deckId));
+    }
+
     // checkIfFlashcardExistsByBackAndDeckId
     public boolean checkIfFlashcardExistsByBackAndDeckId(String back, Integer deckId) {
         return cardRepo.existsByBackAndDeck_DeckId(back, deckId);
