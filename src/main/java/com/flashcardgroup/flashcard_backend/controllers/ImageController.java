@@ -1,26 +1,28 @@
 package com.flashcardgroup.flashcard_backend.controllers;
 
-import com.flashcardgroup.flashcard_backend.service.GcsImageService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import com.flashcardgroup.flashcard_backend.service.ImageStorageService;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.io.IOException;
 
 @RestController
 @CrossOrigin
 public class ImageController {
 
-    private final GcsImageService gcsImageService;
+    private final ImageStorageService imageStorageService;
 
-    public ImageController(GcsImageService gcsImageService) {
-        this.gcsImageService = gcsImageService;
+    public ImageController(ImageStorageService imageStorageService) {
+        this.imageStorageService = imageStorageService;
     }
 
-    @GetMapping("/images/{imageId:.+}")
-    public void getImage(@PathVariable String imageId, HttpServletRequest req, HttpServletResponse res) throws IOException {
-        System.out.println("Auth header present: " + (req.getHeader("Authorization") != null));
-        gcsImageService.streamObject(imageId, res);
+    @GetMapping("/images/{*imageId}")
+    public ResponseEntity<byte[]> getImage(@PathVariable String imageId) {
+        // Strip leading slash if present (Spring captures it in the path variable)
+        String key = imageId.startsWith("/") ? imageId.substring(1) : imageId;
+        var data = imageStorageService.getImage(key);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(data.contentType()))
+                .contentLength(data.contentLength())
+                .body(data.bytes());
     }
-
 }

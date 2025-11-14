@@ -7,29 +7,34 @@ import com.flashcardgroup.flashcard_backend.model.Flashcard;
 import com.flashcardgroup.flashcard_backend.model.Deck;
 import com.flashcardgroup.flashcard_backend.model.User;
 import com.flashcardgroup.flashcard_backend.service.DataService;
-import com.flashcardgroup.flashcard_backend.service.GcsImageService;
+import com.flashcardgroup.flashcard_backend.service.ImageStorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 //@RequestMapping("/api")
 @CrossOrigin
 public class FlashcardController {
 
-    private final DataService dataService;
-    private final GcsImageService gcsImageService;
+    private static final Logger log = LoggerFactory.getLogger(FlashcardController.class);
 
-    public FlashcardController(DataService dataService, GcsImageService gcsImageService) {
+    private final DataService dataService;
+    private final ImageStorageService imageStorageService;
+
+    public FlashcardController(DataService dataService, ImageStorageService imageStorageService) {
         this.dataService = dataService;
-        this.gcsImageService = gcsImageService;
+        this.imageStorageService = imageStorageService;
     }
 
     @PostMapping(value = "/flashcards", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -55,10 +60,21 @@ public class FlashcardController {
             card.setPartOfSpeech(form.PartOfSpeech());
             card.setClassifiers(form.Classifiers());
 
-            var image = form.image();
+            // If an image file was provided, upload to S3 and attach key
+            MultipartFile image = form.image();
+            log.info("addFlashcard: received image? {} name={} contentType={}",
+                    image != null && !image.isEmpty(),
+                    image != null ? image.getOriginalFilename() : null,
+                    image != null ? image.getContentType() : null);
             if (image != null && !image.isEmpty()) {
-                String objectName = gcsImageService.uploadImage(image, form.Back());
-                if (objectName != null) card.setImageNo(objectName);
+                String key = imageStorageService.uploadImage(
+                        "flashcards/" + form.DeckID(),
+                        image.getOriginalFilename(),
+                        image.getContentType(),
+                        image.getInputStream(),
+                        image.getSize()
+                );
+                card.setImageNo(key);
             }
 
             dataService.addFlashcard(card);
