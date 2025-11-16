@@ -1,0 +1,64 @@
+# Build outputs
+build/
+target/
+*.class
+*.jar
+*.war
+
+# Gradle
+.gradle/
+gradle-wrapper.jar
+
+# Environment files (these should be set via environment variables in Fargate)
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+README.md
+docs/
+
+# Terraform files
+terraform/
+*.tf
+*.tfstate
+*.tfstate.backup
+
+# Docker files (don't need these in the image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Test results
+test-results/
+reports/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+

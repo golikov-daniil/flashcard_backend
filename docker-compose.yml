@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flashcard-app
+    ports:
+      - "3000:3000"
+    environment:
+      # Database configuration (external database)
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Server configuration
+      PORT: 3000
+
+      # JWT Secret
+      JWT_SECRET: ${JWT_SECRET}
+
+      # AWS Configuration
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+      # Google Gemini AI
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-pro}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+      # JVM options
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
+
