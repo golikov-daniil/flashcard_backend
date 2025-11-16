@@ -24,6 +24,25 @@ jobs:
           echo "Commit Message: ${{ github.event.head_commit.message }}"
           echo "Triggered by: ${{ github.actor }}"
           echo "======================================"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Build success message
+        run: |
+          echo "======================================"
           echo "✅ Build completed successfully!"
+          echo "======================================"
+          echo "JAR file location: build/libs/"
+          ls -lh build/libs/*.jar
           echo "======================================"
 
