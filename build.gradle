@@ -31,6 +31,9 @@ dependencies {
     // MySQL JDBC driver
     implementation 'com.mysql:mysql-connector-j'
 
+    // H2 in-memory database for testing
+    testImplementation 'com.h2database:h2'
+
     // Security + JWT
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
