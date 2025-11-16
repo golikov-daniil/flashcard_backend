@@ -6,6 +6,7 @@ import com.flashcardgroup.flashcard_backend.dto.LookupDTO;
 import com.google.genai.Client;
 import com.google.genai.types.GenerateContentResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@Profile("!test")
 public class GeminiService {
 
     private final Client client;
