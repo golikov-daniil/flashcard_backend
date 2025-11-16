@@ -116,15 +116,62 @@ resource "aws_instance" "this" {
 
   user_data = <<-EOF
   #cloud-config
+
+  # Update apt indexes and upgrade existing packages
   package_update: true
   package_upgrade: true
+
+  # Install required packages
   packages:
     - git
     - ec2-instance-connect
     - wget
     - curl
     - openjdk-21-jdk
+
+  # Create files on disk
+  write_files:
+    # Systemd service unit for your Java app
+    - path: /etc/systemd/system/myapp.service
+      permissions: "0644"
+      owner: root:root
+      content: |
+        [Unit]
+        Description=My Java App
+        After=network.target
+
+        [Service]
+        # Default Ubuntu user on this AMI
+        User=ubuntu
+        # Directory where the jar will live
+        WorkingDirectory=/opt/myapp
+        # Command to start your app
+        ExecStart=/usr/bin/java -jar /opt/myapp/app.jar
+        # Always restart on failure
+        Restart=always
+        RestartSec=5
+
+        [Install]
+        WantedBy=multi-user.target
+
+  # Commands to run after packages are installed and files are written
   runcmd:
+    # Create app directory where GitHub Actions will copy the jar
+    - mkdir -p /opt/myapp
+    # Make sure the ubuntu user owns this directory
+    - chown ubuntu:ubuntu /opt/myapp
+
+    # Reload systemd so it picks up the new myapp.service file
+    - systemctl daemon-reload
+
+    # Enable the service so it starts automatically on boot
+    - systemctl enable myapp.service
+
+    # Try to start the service once at first boot
+    # It will likely fail until the first deployment copies app.jar, which is fine
+    - systemctl start myapp.service || true
+
+    # Debug and sanity check files
     - echo "Hello from cloud-init" > /var/tmp/hello.txt
     - java -version | tee /var/tmp/java_version.txt
   EOF

@@ -46,3 +46,32 @@ jobs:
           ls -lh build/libs/*.jar
           echo "======================================"
 
+      - name: Copy jar to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}       # your EC2 public IP or DNS
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }} # private key that matches var.key_name
+        run: |
+          echo "$EC2_SSH_KEY" > key.pem
+          chmod 600 key.pem
+
+          # Pick the first jar in build/libs
+          JAR_FILE=$(ls build/libs/*.jar | head -n 1)
+          echo "Uploading $JAR_FILE to EC2..."
+
+          scp -o StrictHostKeyChecking=no -i key.pem \
+            "$JAR_FILE" ubuntu@$EC2_HOST:/opt/myapp/app.jar
+
+      - name: Restart app service on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$EC2_SSH_KEY" > key.pem
+          chmod 600 key.pem
+
+          ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@$EC2_HOST "
+            sudo systemctl daemon-reload
+            sudo systemctl restart myapp.service
+            sudo systemctl status myapp.service --no-pager
+          "
+
