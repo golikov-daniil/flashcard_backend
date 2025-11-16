@@ -1,0 +1,29 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Print welcome message
+        run: |
+          echo "======================================"
+          echo "🚀 CI/CD Pipeline Started!"
+          echo "======================================"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Commit Message: ${{ github.event.head_commit.message }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "======================================"
+          echo "✅ Build completed successfully!"
+          echo "======================================"
+
