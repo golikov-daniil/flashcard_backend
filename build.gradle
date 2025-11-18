@@ -48,6 +48,13 @@ dependencies {
     // Google AI Java SDK
     implementation 'com.google.genai:google-genai:1.27.0'
 }
+bootJar {
+    archiveFileName = "app.jar"
+}
+
+jar {
+    enabled = false
+}
 
 tasks.named('test') {
     useJUnitPlatform()

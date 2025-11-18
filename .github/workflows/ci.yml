@@ -35,7 +35,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew clean bootJar
 
       - name: Build success message
         run: |
@@ -48,18 +48,16 @@ jobs:
 
       - name: Copy jar to EC2
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}       # your EC2 public IP or DNS
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }} # private key that matches var.key_name
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           echo "$EC2_SSH_KEY" > key.pem
           chmod 600 key.pem
 
-          # Pick the first jar in build/libs
-          JAR_FILE=$(ls build/libs/*.jar | head -n 1)
-          echo "Uploading $JAR_FILE to EC2..."
+          echo "Uploading build/libs/app.jar to EC2..."
 
           scp -o StrictHostKeyChecking=no -i key.pem \
-            "$JAR_FILE" ubuntu@$EC2_HOST:/opt/myapp/app.jar
+            build/libs/app.jar ubuntu@$EC2_HOST:/opt/myapp/app.jar
 
       - name: Restart app service on EC2
         env:
