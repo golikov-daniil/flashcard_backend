@@ -47,6 +47,9 @@ dependencies {
 
     // Google AI Java SDK
     implementation 'com.google.genai:google-genai:1.27.0'
+
+    // --- Spring Cloud AWS Parameter Store ---
+    implementation 'io.awspring.cloud:spring-cloud-aws-starter-parameter-store:3.4.1'
 }
 bootJar {
     archiveFileName = "app.jar"
