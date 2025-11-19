@@ -59,6 +59,7 @@ jar {
     enabled = false
 }
 
-tasks.named('test') {
+test {
     useJUnitPlatform()
+    systemProperty "spring.profiles.active", "test"
 }
