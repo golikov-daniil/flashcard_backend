@@ -9,15 +9,10 @@ output "instance_id" {
   value = aws_instance.this.id
 }
 
-output "public_ip" {
-  // The public IPv4 address — useful for quick SSH or testing
-  value = aws_instance.this.public_ip
-}
-
 output "elastic_ip" {
   // The static Elastic IP address assigned to the instance
   description = "Elastic IP address (static, persists across restarts)"
-  value       = aws_eip.this.public_ip
+  value       = aws_eip_association.this.public_ip
 }
 
 output "ssh_command" {
@@ -27,5 +22,5 @@ output "ssh_command" {
   //  - Amazon Linux 2023: ec2-user
   //  - Ubuntu (22.04/24.04): ubuntu
   description = "Convenience SSH command (Ubuntu username is 'ubuntu')"
-  value       = "ssh -i /path/to/your.pem ubuntu@${aws_eip.this.public_ip}"
+  value       = "ssh -i /path/to/your.pem ubuntu@${aws_eip_association.this.public_ip}"
 }

@@ -1,20 +1,4 @@
 // main.tf
-// ----------------------------------------------------------------------------
-// Overview
-// ----------------------------------------------------------------------------
-// This configuration launches a single Amazon EC2 instance in your account's
-// default VPC and subnets within the selected AWS region. It does the
-// following:
-//   1) Looks up the latest Ubuntu 24.04 LTS (x86_64) AMI published by Canonical
-//      using safe filters (owner ID 099720109477 is the official Canonical ID).
-//   2) Creates a minimal security group that allows inbound SSH (port 22)
-//      from a configurable CIDR (by default, it's wide-open 0.0.0.0/0 — this
-//      is convenient for demos but not recommended for production).
-//   3) Launches a t2.micro instance (often Free Tier eligible) into the first
-//      subnet of the default VPC, associates a public IP, and tags it.
-//   4) Uses cloud-init user_data to install OpenJDK 21 (Java), git,
-//      and writes a simple file so you can verify provisioning worked.
-// ----------------------------------------------------------------------------
 
 // ----------------------------------------------------------------------------
 // Ubuntu LTS (Canonical owner 099720109477)
@@ -54,6 +38,17 @@ resource "random_string" "suffix" {
   special = false
 }
 
+
+data "aws_iam_role" "existing" {
+  name = var.iam_role_name
+}
+
+
+resource "aws_iam_instance_profile" "this" {
+  name = "${var.iam_role_name}-profile-${random_string.suffix.result}"
+  role = data.aws_iam_role.existing.name
+}
+
 // Look up default VPC and subnets
 data "aws_vpc" "default" { default = true }
 
@@ -78,16 +73,13 @@ resource "aws_security_group" "ssh" {
     cidr_blocks = [var.ingress_cidr_ssh]
   }
 
-  // Optional app port 8080
-  dynamic "ingress" {
-    for_each = var.ingress_cidr_app == null ? [] : [var.ingress_cidr_app]
-    content {
-      description = "App 8080"
-      from_port   = 8080
-      to_port     = 8080
-      protocol    = "tcp"
-      cidr_blocks = [ingress.value]
-    }
+  # HTTP for Nginx
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -102,88 +94,112 @@ resource "aws_security_group" "ssh" {
   }
 }
 
+// EC2 instance that runs the Java app
 resource "aws_instance" "this" {
-  ami                         = data.aws_ami.ubuntu_2404.id
-  instance_type               = "t3.micro"
-  subnet_id                   = data.aws_subnets.default.ids[0]
-  vpc_security_group_ids      = [aws_security_group.ssh.id]
-  key_name                    = var.key_name
-  associate_public_ip_address = true
+  ami                    = data.aws_ami.ubuntu_2404.id
+  instance_type          = var.instance_type
+  key_name               = var.key_name
+  subnet_id              = data.aws_subnets.default.ids[0]
+
+  // Attach the IAM instance profile created above so the EC2 instance assumes the role
+  iam_instance_profile = aws_iam_instance_profile.this.name
+
+  // Include the managed SG plus optionally an existing (unmanaged) SG provided via variable
+  vpc_security_group_ids = concat([
+    aws_security_group.ssh.id
+  ], var.additional_security_group_id != "" ? [var.additional_security_group_id] : [])
 
   tags = {
     Name = var.instance_name
   }
 
   user_data = <<-EOF
-  #cloud-config
+#cloud-config
+package_update: true
+package_upgrade: true
 
-  # Update apt indexes and upgrade existing packages
-  package_update: true
-  package_upgrade: true
+# Install required packages
+packages:
+  - git
+  - ec2-instance-connect
+  - wget
+  - curl
+  - openjdk-21-jdk
+  - nginx
 
-  # Install required packages
-  packages:
-    - git
-    - ec2-instance-connect
-    - wget
-    - curl
-    - openjdk-21-jdk
+# Create files on disk
+write_files:
+  - path: /etc/systemd/system/myapp.service
+    permissions: '0644'
+    owner: 'root:root'
+    content: |
+      [Unit]
+      Description=My Java App
+      After=network.target
 
-  # Create files on disk
-  write_files:
-    # Systemd service unit for your Java app
-    - path: /etc/systemd/system/myapp.service
-      permissions: "0644"
-      owner: root:root
-      content: |
-        [Unit]
-        Description=My Java App
-        After=network.target
+      [Service]
+      # Default Ubuntu user on this AMI
+      User=ubuntu
+      # Directory where the jar will live
+      WorkingDirectory=/opt/myapp
+      # Command to start your app
+      ExecStart=/usr/bin/java -jar /opt/myapp/app.jar
+      # Always restart on failure
+      Restart=always
+      RestartSec=5
 
-        [Service]
-        # Default Ubuntu user on this AMI
-        User=ubuntu
-        # Directory where the jar will live
-        WorkingDirectory=/opt/myapp
-        # Command to start your app
-        ExecStart=/usr/bin/java -jar /opt/myapp/app.jar
-        # Always restart on failure
-        Restart=always
-        RestartSec=5
+      [Install]
+      WantedBy=multi-user.target
 
-        [Install]
-        WantedBy=multi-user.target
+  - path: /etc/nginx/sites-available/myapp.conf
+    permissions: '0644'
+    owner: 'root:root'
+    content: |
+      server {
+        listen 80;
+        server_name _;
 
-  # Commands to run after packages are installed and files are written
-  runcmd:
-    # Create app directory where GitHub Actions will copy the jar
-    - mkdir -p /opt/myapp
-    # Make sure the ubuntu user owns this directory
-    - chown ubuntu:ubuntu /opt/myapp
+        location / {
+          proxy_pass http://127.0.0.1:8080;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+        }
+      }
 
-    # Reload systemd so it picks up the new myapp.service file
-    - systemctl daemon-reload
+# Commands to run after packages are installed and files are written
+runcmd:
+  # Create app directory where GitHub Actions will copy the jar
+  - mkdir -p /opt/myapp
+  # Make sure the ubuntu user owns this directory
+  - chown ubuntu:ubuntu /opt/myapp
 
-    # Enable the service so it starts automatically on boot
-    - systemctl enable myapp.service
+  # Reload systemd so it picks up the new myapp.service file
+  - systemctl daemon-reload
 
-    # Try to start the service once at first boot
-    # It will likely fail until the first deployment copies app.jar, which is fine
-    - systemctl start myapp.service || true
+  # Enable the service so it starts automatically on boot
+  - systemctl enable myapp.service
 
-    # Debug and sanity check files
-    - echo "Hello from cloud-init" > /var/tmp/hello.txt
-    - java -version | tee /var/tmp/java_version.txt
+  # Try to start the service once at first boot
+  # It will likely fail until the first deployment copies app.jar, which is fine
+  - systemctl start myapp.service || true
+
+  # Enable Nginx site and restart Nginx
+  - ln -s /etc/nginx/sites-available/myapp.conf /etc/nginx/sites-enabled/myapp.conf
+  - rm /etc/nginx/sites-enabled/default || true
+  - nginx -t
+  - systemctl enable nginx
+  - systemctl restart nginx
+
+  # Debug and sanity check files
+  - echo "Hello from cloud-init" > /var/tmp/hello.txt
+  - java -version | tee /var/tmp/java_version.txt
   EOF
 }
 
-// Elastic IP
-resource "aws_eip" "this" {
-  domain = "vpc"
-  tags = { Name = "${var.instance_name}-eip" }
-}
-
+// Associate an existing Elastic IP with this instance
 resource "aws_eip_association" "this" {
   instance_id   = aws_instance.this.id
-  allocation_id = aws_eip.this.id
+  allocation_id = var.eip_allocation_id
 }
