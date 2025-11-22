@@ -41,8 +41,3 @@ variable "instance_type" {
   type        = string
   default     = "t3.micro"
 }
-
-variable "additional_security_group_id" {
-  description = "Optional existing security group ID to associate with the instance (not managed by this Terraform)"
-  type        = string
-}

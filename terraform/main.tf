@@ -61,7 +61,7 @@ data "aws_subnets" "default" {
 
 resource "aws_security_group" "ssh" {
   // Minimal SG to allow SSH access to the instance + optional app port
-  name        = "allow-ssh-java"
+  name        = "java-backend-sg"
   description = "Allow SSH inbound and optional app port"
   vpc_id      = data.aws_vpc.default.id
 
@@ -88,10 +88,6 @@ resource "aws_security_group" "ssh" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = {
-    Name = "allow-ssh-java"
-  }
 }
 
 // EC2 instance that runs the Java app
@@ -104,10 +100,8 @@ resource "aws_instance" "this" {
   // Attach the IAM instance profile created above so the EC2 instance assumes the role
   iam_instance_profile = aws_iam_instance_profile.this.name
 
-  // Include the managed SG plus optionally an existing (unmanaged) SG provided via variable
-  vpc_security_group_ids = concat([
-    aws_security_group.ssh.id
-  ], var.additional_security_group_id != "" ? [var.additional_security_group_id] : [])
+  // Include the managed SG only
+  vpc_security_group_ids = [aws_security_group.ssh.id]
 
   tags = {
     Name = var.instance_name
