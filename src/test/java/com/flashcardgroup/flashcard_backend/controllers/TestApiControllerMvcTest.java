@@ -28,22 +28,4 @@ class TestApiControllerMvcTest {
                 .andExpect(jsonPath("$.status").value("ok"))
                 .andExpect(jsonPath("$.time").isString()); // ensure the field exists and is a string
     }
-
-    @Test
-    @DisplayName("GET /hello without name returns 'Hello, world!'")
-    void hello_defaultsToWorld() throws Exception {
-        mockMvc.perform(get("/hello"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType("application/json"))
-                .andExpect(jsonPath("$.message").value("Hello, world!"));
-    }
-
-    @Test
-    @DisplayName("GET /hello?name=Alice returns 'Hello, Alice!'")
-    void hello_withName() throws Exception {
-        mockMvc.perform(get("/hello").param("name", "Alice"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType("application/json"))
-                .andExpect(jsonPath("$.message").value("Hello, Alice!"));
-    }
 }

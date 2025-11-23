@@ -44,7 +44,7 @@ public class SecurityConfig {
                                 "/login",
                                 "/actuator/health",
                                 "/actuator/info",
-                                "/api/test/ping"
+                                "/ping"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

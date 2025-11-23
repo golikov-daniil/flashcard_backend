@@ -15,9 +15,4 @@ public class TestApiController {
                 "time", Instant.now().toString()
         );
     }
-
-    @GetMapping("/hello")
-    public Map<String, String> hello(@RequestParam(defaultValue = "world") String name) {
-        return Map.of("message", "Hello, " + name + "!");
-    }
 }
