@@ -1,3 +1,7 @@
+########################
+# Networking and ALB
+########################
+
 data "aws_vpc" "default" {
   default = true
 }
@@ -49,6 +53,10 @@ resource "aws_lb" "this" {
   enable_deletion_protection = false
 }
 
+########################
+# Target groups
+########################
+
 # Target group for API on EC2
 resource "aws_lb_target_group" "api" {
   name        = var.api_target_group_name
@@ -75,7 +83,7 @@ resource "aws_lb_target_group" "web" {
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
-  target_type = "ip"  # Fargate services usually use target_type = "ip"
+  target_type = "ip"
 
   health_check {
     enabled             = true
@@ -89,7 +97,11 @@ resource "aws_lb_target_group" "web" {
   }
 }
 
-# Listener on port 80 that only redirects to HTTPS
+########################
+# Listeners and rules
+########################
+
+# Listener on port 80 that redirects to HTTPS
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
@@ -157,5 +169,41 @@ resource "aws_lb_listener_rule" "web_host" {
     host_header {
       values = [var.web_domain_name]
     }
+  }
+}
+
+########################
+# Route 53
+########################
+
+# Look up the hosted zone for your root domain
+data "aws_route53_zone" "primary" {
+  name         = "${var.web_domain_name}."
+  private_zone = false
+}
+
+# A record for web domain, for example example.com
+resource "aws_route53_record" "web" {
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name    = var.web_domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.this.dns_name
+    zone_id                = aws_lb.this.zone_id
+    evaluate_target_health = true
+  }
+}
+
+# A record for API domain, for example api.example.com
+resource "aws_route53_record" "api" {
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name    = var.api_domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.this.dns_name
+    zone_id                = aws_lb.this.zone_id
+    evaluate_target_health = true
   }
 }
