@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/test")
 public class TestApiController {
 
     @GetMapping("/ping")
