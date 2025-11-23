@@ -22,6 +22,14 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description = "HTTPS from anywhere"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -37,7 +45,7 @@ resource "aws_lb" "this" {
   security_groups = [aws_security_group.alb.id]
   subnets         = data.aws_subnets.default.ids
 
-  idle_timeout              = 60
+  idle_timeout               = 60
   enable_deletion_protection = false
 }
 
@@ -64,7 +72,7 @@ resource "aws_lb_target_group" "api" {
 # Target group for web on Fargate
 resource "aws_lb_target_group" "web" {
   name        = var.web_target_group_name
-  port        = 80
+  port        = 3000
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
   target_type = "ip"  # Fargate services usually use target_type = "ip"
@@ -81,13 +89,32 @@ resource "aws_lb_target_group" "web" {
   }
 }
 
-# Single listener on port 80
+# Listener on port 80 that only redirects to HTTPS
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
 
-  # Default action if no rule matches
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# HTTPS listener with ACM certificate
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.this.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = var.acm_certificate_arn
+
+  # Default action if no host rule matches
   default_action {
     type = "fixed-response"
 
@@ -101,7 +128,7 @@ resource "aws_lb_listener" "http" {
 
 # Rule: api.example.com -> API target group (EC2)
 resource "aws_lb_listener_rule" "api_host" {
-  listener_arn = aws_lb_listener.http.arn
+  listener_arn = aws_lb_listener.https.arn
   priority     = 10
 
   action {
@@ -118,7 +145,7 @@ resource "aws_lb_listener_rule" "api_host" {
 
 # Rule: example.com -> web target group (Fargate)
 resource "aws_lb_listener_rule" "web_host" {
-  listener_arn = aws_lb_listener.http.arn
+  listener_arn = aws_lb_listener.https.arn
   priority     = 20
 
   action {
