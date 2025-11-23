@@ -20,9 +20,9 @@ class TestApiControllerMvcTest {
     private MockMvc mockMvc;
 
     @Test
-    @DisplayName("GET /api/test/ping returns { status: 'ok', time: <string> }")
+    @DisplayName("GET /ping returns { status: 'ok', time: <string> }")
     void ping_returnsOkAndTime() throws Exception {
-        mockMvc.perform(get("/api/test/ping"))
+        mockMvc.perform(get("/ping"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/json"))
                 .andExpect(jsonPath("$.status").value("ok"))
@@ -30,18 +30,18 @@ class TestApiControllerMvcTest {
     }
 
     @Test
-    @DisplayName("GET /api/test/hello without name returns 'Hello, world!'")
+    @DisplayName("GET /hello without name returns 'Hello, world!'")
     void hello_defaultsToWorld() throws Exception {
-        mockMvc.perform(get("/api/test/hello"))
+        mockMvc.perform(get("/hello"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/json"))
                 .andExpect(jsonPath("$.message").value("Hello, world!"));
     }
 
     @Test
-    @DisplayName("GET /api/test/hello?name=Alice returns 'Hello, Alice!'")
+    @DisplayName("GET /hello?name=Alice returns 'Hello, Alice!'")
     void hello_withName() throws Exception {
-        mockMvc.perform(get("/api/test/hello").param("name", "Alice"))
+        mockMvc.perform(get("/hello").param("name", "Alice"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/json"))
                 .andExpect(jsonPath("$.message").value("Hello, Alice!"));
