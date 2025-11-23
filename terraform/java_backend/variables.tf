@@ -25,11 +25,6 @@ variable "ingress_cidr_ssh" {
   default     = "0.0.0.0/0"
 }
 
-variable "eip_allocation_id" {
-  type        = string
-  description = "Allocation ID of an existing Elastic IP to attach to this instance"
-}
-
 variable "iam_role_name" {
   description = "Name of an existing IAM role to attach to the EC2 instance via an instance profile"
   type        = string
@@ -41,3 +36,15 @@ variable "instance_type" {
   type        = string
   default     = "t3.micro"
 }
+# ALB variables
+
+variable "target_group_arn" {
+  description = "ARN of an existing ALB target group for this instance"
+  type        = string
+}
+
+variable "alb_security_group_id" {
+  description = "Security group id of the ALB that is allowed to reach this instance on HTTP"
+  type        = string
+}
+

@@ -73,13 +73,13 @@ resource "aws_security_group" "ssh" {
     cidr_blocks = [var.ingress_cidr_ssh]
   }
 
-  # HTTP for Nginx
+  # HTTP from ALB only
   ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = "HTTP from ALB"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [var.alb_security_group_id]
   }
 
   egress {
@@ -192,8 +192,8 @@ runcmd:
   EOF
 }
 
-// Associate an existing Elastic IP with this instance
-resource "aws_eip_association" "this" {
-  instance_id   = aws_instance.this.id
-  allocation_id = var.eip_allocation_id
+resource "aws_lb_target_group_attachment" "this" {
+  target_group_arn = var.target_group_arn
+  target_id        = aws_instance.this.id
+  port             = 80
 }
