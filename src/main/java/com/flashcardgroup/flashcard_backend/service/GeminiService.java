@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flashcardgroup.flashcard_backend.dto.LookupDTO;
 import com.google.genai.Client;
 import com.google.genai.types.GenerateContentResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,8 @@ import java.util.List;
 @Profile("!test")
 public class GeminiService {
 
+    private static final Logger logger = LoggerFactory.getLogger(GeminiService.class);
+
     private final Client client;
     private final ObjectMapper objectMapper;
     private final String modelName;
@@ -25,6 +29,7 @@ public class GeminiService {
         this.client = new Client.Builder().apiKey(apiKey).build();
         this.objectMapper = new ObjectMapper();
         this.modelName = modelName;
+        logger.info("GeminiService initialized with model: {}", modelName);
     }
 
 
