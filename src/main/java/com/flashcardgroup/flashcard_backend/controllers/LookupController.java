@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @CrossOrigin
@@ -43,15 +44,16 @@ public class LookupController {
             // Return empty DTO in case of error
             return ResponseEntity.status(500).body(
                 new LookupDTO(
-                        "Error: " + e.getMessage(),
-                        word,
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        ""
-                )
+                         "Error: " + e.getMessage(),
+                         word,
+                         "",
+                         "",
+                         "",
+                         "",
+                         "",
+                         "",
+                         Map.of()
+                 )
             );
         }
     }

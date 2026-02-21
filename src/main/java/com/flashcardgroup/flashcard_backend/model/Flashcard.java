@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 @Entity
@@ -62,6 +63,15 @@ public class Flashcard {
 
     @Column(name = "classifiers", columnDefinition = "TEXT")
     private String classifiers;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "flashcard_translations",
+            joinColumns = @JoinColumn(name = "cardid", foreignKey = @ForeignKey(name = "fk_flashcard_translations_card"))
+    )
+    @MapKeyColumn(name = "lang", length = 20)
+    @Column(name = "translation", columnDefinition = "TEXT")
+    private Map<String, String> translations = new HashMap<>();
 
     @Column(name = "image_no", length = 100)
     private String imageNo;
@@ -157,6 +167,11 @@ public class Flashcard {
 
     public String getClassifiers() { return classifiers; }
     public void setClassifiers(String classifiers) { this.classifiers = classifiers; }
+
+    public Map<String, String> getTranslations() { return translations; }
+    public void setTranslations(Map<String, String> translations) {
+        this.translations = (translations == null) ? new HashMap<>() : translations;
+    }
 
     public String getImageNo() { return imageNo; }
     public void setImageNo(String imageNo) { this.imageNo = imageNo; }

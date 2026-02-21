@@ -13,5 +13,6 @@ public record FlashcardForm(
         String Synonyms,
         String PartOfSpeech,
         String Classifiers,
+        String Translations,
         MultipartFile image
 ) {}

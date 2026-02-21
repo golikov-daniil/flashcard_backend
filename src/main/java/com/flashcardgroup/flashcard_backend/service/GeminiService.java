@@ -12,7 +12,9 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Profile("!test")
@@ -38,17 +40,18 @@ public class GeminiService {
 
     // New overload supporting response language and target translation languages
     public LookupDTO lookup(String word, String responseLang, List<String> translateTo) throws IOException {
-        String prompt = buildLookupPrompt(word, responseLang);
+        String prompt = buildLookupPrompt(word, responseLang, translateTo);
 
         GenerateContentResponse response = client.models.generateContent(modelName, prompt, null);
         String responseText = response.text();
         return parseGeminiResponse(word, responseText);
     }
 
-    private String buildLookupPrompt(String word, String responseLang) {
+    private String buildLookupPrompt(String word, String responseLang, List<String> translateTo) {
+        String targets = (translateTo == null || translateTo.isEmpty()) ? "" : String.join(",", translateTo);
         return "You generate flashcard fields. Respond only with strict JSON and no extra text. " +
                 "Use RESPONSE_LANGUAGE for the meaning (Front).\n\n" +
-                String.format("WORD: '%s'\nRESPONSE_LANGUAGE: %s\n\n", word, responseLang) +
+                String.format("WORD: '%s'\nRESPONSE_LANGUAGE: %s\nTRANSLATION_TARGETS: %s\n\n", word, responseLang, targets) +
                 "Return JSON exactly in this shape (no extra fields):\n" +
                 "{\n" +
                 "  \"Front\": \"meaning/definition of WORD written in RESPONSE_LANGUAGE (1-2 short lines)\",\n" +
@@ -58,8 +61,16 @@ public class GeminiService {
                 "  \"OccurrenceIndices\": \"comma-separated 0-based word indices of WORD inside Example; no spaces; e.g. '3' or '3,4'\",\n" +
                 "  \"Synonyms\": \"3-6 synonyms separated by '; ' (empty string if none)\",\n" +
                 "  \"PartOfSpeech\": \"noun/verb/adjective/etc (empty string if unknown)\",\n" +
-                "  \"Classifiers\": \"classifier tags if relevant (otherwise empty string)\"\n" +
+                "  \"Classifiers\": \"classifier tags if relevant (otherwise empty string)\",\n" +
+                "  \"Translations\": {\n" +
+                "    \"<lang>\": \"translation of WORD into that language\"\n" +
+                "  }\n" +
                 "}\n\n" +
+                "Translations rules:\n" +
+                "- If TRANSLATION_TARGETS is empty, return an empty object {}.\n" +
+                "- Otherwise, create one entry per language code in TRANSLATION_TARGETS (comma-separated).\n" +
+                "- Only include requested language codes as keys.\n" +
+                "- Values are the best natural translation of WORD (not the definition).\n\n" +
                 "OccurrenceIndices rules:\n" +
                 "- Tokenize Example by splitting on single spaces. Indices refer to token positions in that list (0-based).\n" +
                 "- For matching, compare tokens after stripping leading/trailing punctuation characters .,!?:;\"'()[]{} and using case-insensitive comparison.\n" +
@@ -99,7 +110,16 @@ public class GeminiService {
             String partOfSpeech = jsonNode.has("PartOfSpeech") ? jsonNode.get("PartOfSpeech").asText() : "";
             String classifiers = jsonNode.has("Classifiers") ? jsonNode.get("Classifiers").asText() : "";
 
-            return new LookupDTO(front, back, metadata, example, occurrenceIndices, synonyms, partOfSpeech, classifiers);
+            Map<String, String> translations = new LinkedHashMap<>();
+            if (jsonNode.has("Translations") && jsonNode.get("Translations").isObject()) {
+                JsonNode t = jsonNode.get("Translations");
+                t.fields().forEachRemaining(entry -> {
+                    JsonNode v = entry.getValue();
+                    translations.put(entry.getKey(), (v == null || v.isNull()) ? "" : v.asText());
+                });
+            }
+
+            return new LookupDTO(front, back, metadata, example, occurrenceIndices, synonyms, partOfSpeech, classifiers, translations);
         } catch (Exception e) {
             throw new IOException("Failed to parse Gemini response: " + e.getMessage(), e);
         }

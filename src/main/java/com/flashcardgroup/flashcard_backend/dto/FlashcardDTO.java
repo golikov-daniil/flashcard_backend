@@ -4,6 +4,8 @@ package com.flashcardgroup.flashcard_backend.dto;
 import com.flashcardgroup.flashcard_backend.model.Flashcard;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Map;
+
 public record FlashcardDTO(
         @JsonProperty("CardID") Integer CardID,
         @JsonProperty("DeckID") Integer DeckID,
@@ -17,6 +19,7 @@ public record FlashcardDTO(
         @JsonProperty("Synonyms") String Synonyms,
         @JsonProperty("PartOfSpeech") String PartOfSpeech,
         @JsonProperty("Classifiers") String Classifiers,
+        @JsonProperty("Translations") Map<String, String> Translations,
         @JsonProperty("ImageNo") String ImageNo
 ) {
     public static FlashcardDTO fromEntity(Flashcard flashcard) {
@@ -33,6 +36,7 @@ public record FlashcardDTO(
                 flashcard.getSynonyms(),
                 flashcard.getPartOfSpeech(),
                 flashcard.getClassifiers(),
+                flashcard.getTranslations(),
                 flashcard.getImageNo()
         );
     }

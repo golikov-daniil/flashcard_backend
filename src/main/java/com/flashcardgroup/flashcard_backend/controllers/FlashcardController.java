@@ -8,6 +8,8 @@ import com.flashcardgroup.flashcard_backend.model.Deck;
 import com.flashcardgroup.flashcard_backend.model.User;
 import com.flashcardgroup.flashcard_backend.service.DataService;
 import com.flashcardgroup.flashcard_backend.service.ImageStorageService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,10 +33,12 @@ public class FlashcardController {
 
     private final DataService dataService;
     private final ImageStorageService imageStorageService;
+    private final ObjectMapper objectMapper;
 
-    public FlashcardController(DataService dataService, ImageStorageService imageStorageService) {
+    public FlashcardController(DataService dataService, ImageStorageService imageStorageService, ObjectMapper objectMapper) {
         this.dataService = dataService;
         this.imageStorageService = imageStorageService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping(value = "/flashcards", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -59,6 +63,18 @@ public class FlashcardController {
             card.setSynonyms(form.Synonyms());
             card.setPartOfSpeech(form.PartOfSpeech());
             card.setClassifiers(form.Classifiers());
+
+            if (form.Translations() != null && !form.Translations().isBlank()) {
+                try {
+                    card.setTranslations(objectMapper.readValue(
+                            form.Translations(),
+                            new TypeReference<Map<String, String>>() {}
+                    ));
+                } catch (Exception e) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body("Invalid Translations JSON: " + e.getMessage());
+                }
+            }
 
             // If an image file was provided, upload to S3 and attach key
             MultipartFile image = form.image();
