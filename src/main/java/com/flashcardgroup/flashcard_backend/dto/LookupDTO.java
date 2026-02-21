@@ -2,13 +2,14 @@ package com.flashcardgroup.flashcard_backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
-
 public record LookupDTO(
-        @JsonProperty("meaning") String meaning,
-        @JsonProperty("etymology") String etymology,
-        @JsonProperty("translation") List<String> translation,
-        @JsonProperty("cognates") List<String> cognates
+        @JsonProperty("Front") String Front,
+        @JsonProperty("Back") String Back,
+        @JsonProperty("Metadata") String Metadata,
+        @JsonProperty("Example") String Example,
+        @JsonProperty("OccurrenceIndices") String OccurrenceIndices,
+        @JsonProperty("Synonyms") String Synonyms,
+        @JsonProperty("PartOfSpeech") String PartOfSpeech,
+        @JsonProperty("Classifiers") String Classifiers
 ) {
 }
-

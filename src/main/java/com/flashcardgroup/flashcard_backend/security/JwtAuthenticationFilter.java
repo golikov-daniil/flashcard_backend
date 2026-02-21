@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private final JwtService jwtService;
 
     public JwtAuthenticationFilter(JwtService jwtService) {
@@ -39,8 +42,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userId, null, null);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                logger.debug("JWT authentication successful for userId: {}", userId);
             } catch (Exception ex) {
                 // Invalid token -> clear context; downstream will get 401 by security config
+                logger.error("JWT authentication failed: {}", ex.getMessage(), ex);
                 SecurityContextHolder.clearContext();
             }
         }

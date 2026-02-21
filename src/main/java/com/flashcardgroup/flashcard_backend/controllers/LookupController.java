@@ -42,7 +42,16 @@ public class LookupController {
         } catch (IOException e) {
             // Return empty DTO in case of error
             return ResponseEntity.status(500).body(
-                new LookupDTO("Error: " + e.getMessage(), "", List.of(), List.of())
+                new LookupDTO(
+                        "Error: " + e.getMessage(),
+                        word,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        ""
+                )
             );
         }
     }

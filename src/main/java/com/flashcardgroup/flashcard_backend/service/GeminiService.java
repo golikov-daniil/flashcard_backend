@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -34,60 +33,42 @@ public class GeminiService {
 
 
     public LookupDTO lookup(String word) throws IOException {
-        String prompt = String.format(
-            "For the word '%s', provide the following information in JSON format:\n" +
-            "{\n" +
-            "  \"meaning\": \"definition and meaning of the word\",\n" +
-            "  \"etymology\": \"origin and etymology of the word\",\n" +
-            "  \"translation\": [\"translation1\", \"translation2\"],\n" +
-            "  \"cognates\": [\"cognate1\", \"cognate2\"]\n" +
-            "}\n" +
-            "Only return valid JSON, no additional text.",
-            word
-        );
-
-        GenerateContentResponse response = client.models.generateContent(modelName, prompt, null);
-        String responseText = response.text();
-
-        // Parse JSON response
-        return parseGeminiResponse(responseText);
+        return lookup(word, "en", List.of());
     }
 
     // New overload supporting response language and target translation languages
     public LookupDTO lookup(String word, String responseLang, List<String> translateTo) throws IOException {
-        String targetsSection;
-        if (translateTo == null || translateTo.isEmpty()) {
-            targetsSection = "No translations are required; return an empty JSON array for the 'translation' field.";
-        } else {
-            // Build ordered instruction
-            StringBuilder sb = new StringBuilder();
-            sb.append("Provide translations in the 'translation' array in this exact order and length (one string per language, no labels): ");
-            for (int i = 0; i < translateTo.size(); i++) {
-                sb.append(translateTo.get(i));
-                if (i < translateTo.size() - 1) sb.append(", ");
-            }
-            targetsSection = sb.toString();
-        }
-
-        String prompt = "You are a precise multilingual dictionary and etymology generator. " +
-                "Respond only with strict JSON and no extra text. Use the given response language for narrative fields.\n\n" +
-                String.format("WORD: '%s'\nRESPONSE_LANGUAGE: %s\n", word, responseLang) +
-                targetsSection + "\n\n" +
-                "Return JSON exactly in this shape (no extra fields):\n" +
-                "{\n" +
-                "  \"meaning\": \"short definition and meaning written in RESPONSE_LANGUAGE\",\n" +
-                "  \"etymology\": \"brief origin and etymology written in RESPONSE_LANGUAGE\",\n" +
-                "  \"translation\": [\"string per requested language, in order (or empty if none requested)\"],\n" +
-                "  \"cognates\": [\"a few probable cognates]\n" +
-                "}\n" +
-                "Rules: Use plain text, no markdown. Ensure valid JSON only.";
+        String prompt = buildLookupPrompt(word, responseLang);
 
         GenerateContentResponse response = client.models.generateContent(modelName, prompt, null);
         String responseText = response.text();
-        return parseGeminiResponse(responseText);
+        return parseGeminiResponse(word, responseText);
     }
 
-    private LookupDTO parseGeminiResponse(String responseText) throws IOException {
+    private String buildLookupPrompt(String word, String responseLang) {
+        return "You generate flashcard fields. Respond only with strict JSON and no extra text. " +
+                "Use RESPONSE_LANGUAGE for the meaning (Front).\n\n" +
+                String.format("WORD: '%s'\nRESPONSE_LANGUAGE: %s\n\n", word, responseLang) +
+                "Return JSON exactly in this shape (no extra fields):\n" +
+                "{\n" +
+                "  \"Front\": \"meaning/definition of WORD written in RESPONSE_LANGUAGE (1-2 short lines)\",\n" +
+                "  \"Back\": \"WORD exactly\",\n" +
+                "  \"Metadata\": \"\",\n" +
+                "  \"Example\": \"one short example sentence that contains WORD\",\n" +
+                "  \"OccurrenceIndices\": \"comma-separated 0-based word indices of WORD inside Example; no spaces; e.g. '3' or '3,4'\",\n" +
+                "  \"Synonyms\": \"3-6 synonyms separated by '; ' (empty string if none)\",\n" +
+                "  \"PartOfSpeech\": \"noun/verb/adjective/etc (empty string if unknown)\",\n" +
+                "  \"Classifiers\": \"classifier tags if relevant (otherwise empty string)\"\n" +
+                "}\n\n" +
+                "OccurrenceIndices rules:\n" +
+                "- Tokenize Example by splitting on single spaces. Indices refer to token positions in that list (0-based).\n" +
+                "- For matching, compare tokens after stripping leading/trailing punctuation characters .,!?:;\"'()[]{} and using case-insensitive comparison.\n" +
+                "- If WORD contains multiple space-separated tokens (a phrase), include indices for every token of each occurrence.\n" +
+                "- Ensure Example contains WORD exactly once whenever possible to keep indices simple.\n\n" +
+                "Rules: Use plain text in all string fields, no markdown. Ensure valid JSON only.";
+    }
+
+    private LookupDTO parseGeminiResponse(String word, String responseText) throws IOException {
         try {
             // Remove markdown code blocks if present
             String cleanJson = responseText.trim();
@@ -103,20 +84,22 @@ public class GeminiService {
 
             JsonNode jsonNode = objectMapper.readTree(cleanJson);
 
-            String meaning = jsonNode.has("meaning") ? jsonNode.get("meaning").asText() : "";
-            String etymology = jsonNode.has("etymology") ? jsonNode.get("etymology").asText() : "";
-
-            List<String> translation = new ArrayList<>();
-            if (jsonNode.has("translation") && jsonNode.get("translation").isArray()) {
-                jsonNode.get("translation").forEach(node -> translation.add(node.asText()));
+            String front = jsonNode.has("Front") ? jsonNode.get("Front").asText() : "";
+            String back = jsonNode.has("Back") ? jsonNode.get("Back").asText() : "";
+            if (back == null || back.isBlank()) {
+                back = word;
             }
 
-            List<String> cognates = new ArrayList<>();
-            if (jsonNode.has("cognates") && jsonNode.get("cognates").isArray()) {
-                jsonNode.get("cognates").forEach(node -> cognates.add(node.asText()));
-            }
+            // Always keep metadata empty (client requested)
+            String metadata = "";
 
-            return new LookupDTO(meaning, etymology, translation, cognates);
+            String example = jsonNode.has("Example") ? jsonNode.get("Example").asText() : "";
+            String occurrenceIndices = jsonNode.has("OccurrenceIndices") ? jsonNode.get("OccurrenceIndices").asText() : "";
+            String synonyms = jsonNode.has("Synonyms") ? jsonNode.get("Synonyms").asText() : "";
+            String partOfSpeech = jsonNode.has("PartOfSpeech") ? jsonNode.get("PartOfSpeech").asText() : "";
+            String classifiers = jsonNode.has("Classifiers") ? jsonNode.get("Classifiers").asText() : "";
+
+            return new LookupDTO(front, back, metadata, example, occurrenceIndices, synonyms, partOfSpeech, classifiers);
         } catch (Exception e) {
             throw new IOException("Failed to parse Gemini response: " + e.getMessage(), e);
         }
