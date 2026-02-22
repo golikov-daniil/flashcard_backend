@@ -40,6 +40,7 @@ public class GeminiService {
 
     // New overload supporting response language and target translation languages
     public LookupDTO lookup(String word, String responseLang, List<String> translateTo) throws IOException {
+        logger.info("GeminiService.lookup: word='{}' responseLang='{}' translateTo={}", word, responseLang, translateTo);
         String prompt = buildLookupPrompt(word, responseLang, translateTo);
 
         GenerateContentResponse response = client.models.generateContent(modelName, prompt, null);
@@ -48,10 +49,43 @@ public class GeminiService {
     }
 
     private String buildLookupPrompt(String word, String responseLang, List<String> translateTo) {
-        String targets = (translateTo == null || translateTo.isEmpty()) ? "" : String.join(",", translateTo);
-        return "You generate flashcard fields. Respond only with strict JSON and no extra text. " +
-                "Use RESPONSE_LANGUAGE for the meaning (Front).\n\n" +
+        if (translateTo == null || translateTo.isEmpty()) {
+            return "You generate flashcard fields. Respond only with strict JSON and no extra text.\n\n" +
+                    String.format("WORD: '%s'\nRESPONSE_LANGUAGE: %s\n\n", word, responseLang) +
+                    "Hard requirements:\n" +
+                    "- Front MUST be a meaning/definition (NOT a translation) written in RESPONSE_LANGUAGE.\n" +
+                    "- If RESPONSE_LANGUAGE is 'en', Front MUST be in English.\n\n" +
+                    "Return JSON exactly in this shape (no extra fields):\n" +
+                    "{\n" +
+                    "  \"Front\": \"meaning/definition of WORD written in RESPONSE_LANGUAGE (1-2 short lines)\",\n" +
+                    "  \"Back\": \"WORD exactly\",\n" +
+                    "  \"Metadata\": \"\",\n" +
+                    "  \"Example\": \"one short example sentence that contains WORD\",\n" +
+                    "  \"OccurrenceIndices\": \"comma-separated 0-based word indices of WORD inside Example; no spaces; e.g. '3' or '3,4'\",\n" +
+                    "  \"Synonyms\": \"3-6 synonyms separated by '; ' (empty string if none)\",\n" +
+                    "  \"PartOfSpeech\": \"noun/verb/adjective/etc (empty string if unknown)\",\n" +
+                    "  \"Classifiers\": \"classifier tags if relevant (otherwise empty string)\"\n" +
+                    "}\n\n" +
+                    "OccurrenceIndices rules:\n" +
+                    "- Tokenize Example by splitting on single spaces. Indices refer to token positions in that list (0-based).\n" +
+                    "- For matching, compare tokens after stripping leading/trailing punctuation characters .,!?:;\"'()[]{} and using case-insensitive comparison.\n" +
+                    "- If WORD contains multiple space-separated tokens (a phrase), include indices for every token of each occurrence.\n" +
+                    "- Ensure Example contains WORD exactly once whenever possible to keep indices simple.\n\n" +
+                    "Rules: Use plain text in all string fields, no markdown. Ensure valid JSON only.";
+        }
+
+        String targets = String.join(",", translateTo);
+        return "You generate flashcard fields. Respond only with strict JSON and no extra text.\n\n" +
                 String.format("WORD: '%s'\nRESPONSE_LANGUAGE: %s\nTRANSLATION_TARGETS: %s\n\n", word, responseLang, targets) +
+                "Hard requirements:\n" +
+                "- Front MUST be a meaning/definition (NOT a translation) written in RESPONSE_LANGUAGE.\n" +
+                "- Front MUST NOT be written in any language listed in TRANSLATION_TARGETS.\n" +
+                "- Translations are ONLY placed in the Translations object; they must NOT affect Front/Example/Synonyms/etc.\n" +
+                "- If RESPONSE_LANGUAGE is 'en', Front MUST be in English.\n\n" +
+                "Example (for clarity only; do not include in output):\n" +
+                "WORD='puckish' RESPONSE_LANGUAGE=en TRANSLATION_TARGETS=ru\n" +
+                "Front could be: 'playfully mischievous; impish'\n" +
+                "Translations could be: {\"ru\": \"ozornoy\"}\n\n" +
                 "Return JSON exactly in this shape (no extra fields):\n" +
                 "{\n" +
                 "  \"Front\": \"meaning/definition of WORD written in RESPONSE_LANGUAGE (1-2 short lines)\",\n" +
@@ -67,8 +101,7 @@ public class GeminiService {
                 "  }\n" +
                 "}\n\n" +
                 "Translations rules:\n" +
-                "- If TRANSLATION_TARGETS is empty, return an empty object {}.\n" +
-                "- Otherwise, create one entry per language code in TRANSLATION_TARGETS (comma-separated).\n" +
+                "- Create one entry per language code in TRANSLATION_TARGETS (comma-separated).\n" +
                 "- Only include requested language codes as keys.\n" +
                 "- Values are the best natural translation of WORD (not the definition).\n\n" +
                 "OccurrenceIndices rules:\n" +
