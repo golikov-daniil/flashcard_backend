@@ -40,8 +40,21 @@ public class LookupController {
             List<String> targets = (translateTo == null) ? Collections.emptyList() : translateTo;
             LookupDTO result = geminiService.lookup(word, respLang, targets);
             return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(502).body(
+                    new LookupDTO(
+                            "Error: lookup provider failed - " + e.getMessage(),
+                            word,
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            Map.of()
+                    )
+            );
         } catch (IOException e) {
-            // Return empty DTO in case of error
             return ResponseEntity.status(500).body(
                 new LookupDTO(
                          "Error: " + e.getMessage(),
